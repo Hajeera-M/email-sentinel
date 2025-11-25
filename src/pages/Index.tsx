@@ -15,93 +15,46 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
-  // Advanced spam detection logic
+  // AI-powered spam detection using machine learning
   const analyzeEmail = async (subject: string, body: string) => {
     setIsAnalyzing(true);
     setResult(null);
 
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-spam`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({ subject, body }),
+        }
+      );
 
-    const text = `${subject} ${body}`.toLowerCase();
-    
-    // Enhanced spam keywords and patterns
-    const urgencyWords = ["urgent", "act now", "limited time", "expires", "hurry", "immediately", "instant"];
-    const moneyWords = ["prize", "winner", "cash", "free money", "$$$", "discount", "earn", "profit"];
-    const scamWords = ["congratulations", "claim", "selected", "verify account", "suspended", "click here"];
-    const suspiciousPatterns = ["click now", "100% free", "no cost", "risk free", "guarantee"];
-    
-    // Advanced detection patterns
-    const hasURL = /https?:\/\//.test(text);
-    const hasSuspiciousURL = /(bit\.ly|tinyurl|goo\.gl)/i.test(text);
-    const hasExcessivePunctuation = (text.match(/!{2,}/g) || []).length > 0;
-    const hasAllCaps = subject.toUpperCase() === subject && subject.length > 10;
-    const hasMultipleDollarSigns = (text.match(/\$/g) || []).length > 3;
-    const hasExcessiveEmojis = (text.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length > 5;
-    
-    // Calculate indicators
-    const urgencyCount = urgencyWords.filter(word => text.includes(word)).length;
-    const moneyCount = moneyWords.filter(word => text.includes(word)).length;
-    const scamCount = scamWords.filter(word => text.includes(word)).length;
-    const patternCount = suspiciousPatterns.filter(pattern => text.includes(pattern)).length;
-    
-    // Spam scoring system
-    let spamScore = 0;
-    spamScore += urgencyCount * 15;
-    spamScore += moneyCount * 12;
-    spamScore += scamCount * 18;
-    spamScore += patternCount * 10;
-    spamScore += hasExcessivePunctuation ? 20 : 0;
-    spamScore += hasAllCaps ? 15 : 0;
-    spamScore += hasSuspiciousURL ? 25 : 0;
-    spamScore += hasMultipleDollarSigns ? 10 : 0;
-    spamScore += hasExcessiveEmojis ? 8 : 0;
-    
-    const isSpam = spamScore >= 35;
-    const confidence = isSpam 
-      ? Math.min(65 + Math.floor(spamScore / 2), 98)
-      : Math.max(90 - spamScore, 55);
+      if (!response.ok) {
+        const errorData = await response.json();
+        if (response.status === 429) {
+          toast.error("Rate limit exceeded. Please try again later.");
+        } else if (response.status === 402) {
+          toast.error("AI credits exhausted. Please add credits to continue.");
+        } else {
+          toast.error(errorData.error || "Analysis failed. Please try again.");
+        }
+        setIsAnalyzing(false);
+        return;
+      }
 
-    const reasons: string[] = [];
-    
-    if (isSpam) {
-      if (urgencyCount > 0) {
-        reasons.push(`High-pressure urgency language detected (${urgencyCount} instances)`);
-      }
-      if (moneyCount > 0) {
-        reasons.push(`Financial incentive keywords found (${moneyCount} instances)`);
-      }
-      if (scamCount > 0) {
-        reasons.push(`Common phishing/scam phrases identified (${scamCount} instances)`);
-      }
-      if (hasSuspiciousURL) {
-        reasons.push("Contains suspicious shortened URLs");
-      }
-      if (hasExcessivePunctuation) {
-        reasons.push("Excessive punctuation marks used for emphasis");
-      }
-      if (hasAllCaps) {
-        reasons.push("Subject line in all capitals (aggressive tone)");
-      }
-      if (hasMultipleDollarSigns) {
-        reasons.push("Excessive monetary symbols detected");
-      }
-    } else {
-      reasons.push("Professional and measured communication tone");
-      reasons.push("Absence of high-pressure sales tactics");
-      if (!hasURL || (hasURL && !hasSuspiciousURL)) {
-        reasons.push("No suspicious links or shortened URLs");
-      }
-      reasons.push("Appropriate formatting and structure");
-      if (spamScore === 0) {
-        reasons.push("No spam indicators detected");
-      }
+      const analysis = await response.json();
+      setResult(analysis);
+      toast.success("AI analysis complete!");
+    } catch (error) {
+      console.error("Error analyzing email:", error);
+      toast.error("Failed to analyze email. Please try again.");
+    } finally {
+      setIsAnalyzing(false);
     }
-
-    setResult({ isSpam, confidence, reasons });
-    setIsAnalyzing(false);
-    
-    toast.success("Analysis complete!");
   };
 
   const handleSampleSelect = (subject: string, body: string) => {
