@@ -15,7 +15,7 @@ const Index = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
 
-  // Simulated spam detection logic (will be replaced with real ML)
+  // Advanced spam detection logic
   const analyzeEmail = async (subject: string, body: string) => {
     setIsAnalyzing(true);
     setResult(null);
@@ -25,40 +25,76 @@ const Index = () => {
 
     const text = `${subject} ${body}`.toLowerCase();
     
-    // Simple heuristics for demo
-    const spamKeywords = [
-      "urgent", "prize", "winner", "click now", "act now", "congratulations!!!",
-      "cash", "free money", "$$$", "limited time"
-    ];
+    // Enhanced spam keywords and patterns
+    const urgencyWords = ["urgent", "act now", "limited time", "expires", "hurry", "immediately", "instant"];
+    const moneyWords = ["prize", "winner", "cash", "free money", "$$$", "discount", "earn", "profit"];
+    const scamWords = ["congratulations", "claim", "selected", "verify account", "suspended", "click here"];
+    const suspiciousPatterns = ["click now", "100% free", "no cost", "risk free", "guarantee"];
     
-    const spamIndicators = spamKeywords.filter(keyword => text.includes(keyword));
+    // Advanced detection patterns
+    const hasURL = /https?:\/\//.test(text);
+    const hasSuspiciousURL = /(bit\.ly|tinyurl|goo\.gl)/i.test(text);
     const hasExcessivePunctuation = (text.match(/!{2,}/g) || []).length > 0;
     const hasAllCaps = subject.toUpperCase() === subject && subject.length > 10;
+    const hasMultipleDollarSigns = (text.match(/\$/g) || []).length > 3;
+    const hasExcessiveEmojis = (text.match(/[\u{1F300}-\u{1F9FF}]/gu) || []).length > 5;
     
-    const isSpam = spamIndicators.length >= 2 || hasExcessivePunctuation;
+    // Calculate indicators
+    const urgencyCount = urgencyWords.filter(word => text.includes(word)).length;
+    const moneyCount = moneyWords.filter(word => text.includes(word)).length;
+    const scamCount = scamWords.filter(word => text.includes(word)).length;
+    const patternCount = suspiciousPatterns.filter(pattern => text.includes(pattern)).length;
+    
+    // Spam scoring system
+    let spamScore = 0;
+    spamScore += urgencyCount * 15;
+    spamScore += moneyCount * 12;
+    spamScore += scamCount * 18;
+    spamScore += patternCount * 10;
+    spamScore += hasExcessivePunctuation ? 20 : 0;
+    spamScore += hasAllCaps ? 15 : 0;
+    spamScore += hasSuspiciousURL ? 25 : 0;
+    spamScore += hasMultipleDollarSigns ? 10 : 0;
+    spamScore += hasExcessiveEmojis ? 8 : 0;
+    
+    const isSpam = spamScore >= 35;
     const confidence = isSpam 
-      ? Math.min(75 + spamIndicators.length * 5 + (hasAllCaps ? 10 : 0), 99)
-      : Math.max(80 - spamIndicators.length * 10, 60);
+      ? Math.min(65 + Math.floor(spamScore / 2), 98)
+      : Math.max(90 - spamScore, 55);
 
     const reasons: string[] = [];
     
     if (isSpam) {
-      if (spamIndicators.length > 0) {
-        reasons.push(`Contains ${spamIndicators.length} spam keywords: ${spamIndicators.slice(0, 3).join(", ")}`);
+      if (urgencyCount > 0) {
+        reasons.push(`High-pressure urgency language detected (${urgencyCount} instances)`);
+      }
+      if (moneyCount > 0) {
+        reasons.push(`Financial incentive keywords found (${moneyCount} instances)`);
+      }
+      if (scamCount > 0) {
+        reasons.push(`Common phishing/scam phrases identified (${scamCount} instances)`);
+      }
+      if (hasSuspiciousURL) {
+        reasons.push("Contains suspicious shortened URLs");
       }
       if (hasExcessivePunctuation) {
-        reasons.push("Excessive use of exclamation marks");
+        reasons.push("Excessive punctuation marks used for emphasis");
       }
       if (hasAllCaps) {
-        reasons.push("Subject line is all caps");
+        reasons.push("Subject line in all capitals (aggressive tone)");
       }
-      reasons.push("Urgency-based language patterns detected");
+      if (hasMultipleDollarSigns) {
+        reasons.push("Excessive monetary symbols detected");
+      }
     } else {
-      reasons.push("Professional language and tone");
-      reasons.push("No urgent call-to-action phrases");
-      reasons.push("Standard email formatting");
-      if (spamIndicators.length === 0) {
-        reasons.push("No spam keywords detected");
+      reasons.push("Professional and measured communication tone");
+      reasons.push("Absence of high-pressure sales tactics");
+      if (!hasURL || (hasURL && !hasSuspiciousURL)) {
+        reasons.push("No suspicious links or shortened URLs");
+      }
+      reasons.push("Appropriate formatting and structure");
+      if (spamScore === 0) {
+        reasons.push("No spam indicators detected");
       }
     }
 
